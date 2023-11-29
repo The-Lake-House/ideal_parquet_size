@@ -1,0 +1,57 @@
+#!/usr/bin/env python
+
+import numpy as np
+import pyarrow as pa
+import pyarrow.parquet as pq
+import pandas as pd
+import itertools
+import math
+import os
+import subprocess
+import sys
+import tempfile
+
+if len(sys.argv) > 1:
+    datatype = sys.argv[1]
+else:
+    datatype = "double"
+
+parquet_filename = tempfile.mkdtemp() + '/parquet'
+output_path = 'footer_lengths_' + datatype
+
+if os.path.exists(output_path):
+    os.remove(output_path)
+output_file = open(output_path, 'a')
+
+limit = 48 * 1024
+
+def get_footer_length(path):
+    output = subprocess.run('./get_parquet_footer_length ' + path, capture_output=True, shell=True, text=True)
+    return int(output.stdout.replace('\n', ''))
+
+rng = np.random.default_rng()
+
+for i in range(1, 1000 + 1):
+    stop = False
+    for j in range(1, 1000 + 1):
+        if datatype == "integer":
+            data = rng.integers(256, size=[i, j], dtype=np.int32)
+        else:
+            data = rng.random([i, j])
+        table = pa.table(pd.DataFrame(data))
+        pq.write_table(table, parquet_filename, row_group_size = 1)
+        parquet_filesize = get_footer_length(parquet_filename)
+        os.remove(parquet_filename)
+        output_str = f'{i} {j} {parquet_filesize}\n'
+        print(i, j, parquet_filesize)
+        if parquet_filesize > limit:
+            output_file.write(output_str)
+            stop = True
+            break
+    if stop and j == 1:
+        output_file.write(output_str)
+        break
+    output_file.flush()
+
+output_file.close()
+

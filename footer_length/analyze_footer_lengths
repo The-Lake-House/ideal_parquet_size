@@ -1,0 +1,29 @@
+#!/usr/bin/env Rscript
+
+library(ggplot2)
+
+plot <- function(type) {
+
+    data <- read.table(paste0("footer_lengths_", type), col.names = c("rows", "cols", "length"))
+
+    # Convert bytes to KiB
+    data[["length"]] = data[["length"]]  / 1024
+
+    plot <- ggplot(data, aes(x = rows, y = cols)) +
+        geom_line() +
+        scale_x_continuous(
+            "Number of row groups",
+            breaks = seq(0, max(data$rows) + 25, 25)
+        ) +
+        scale_y_continuous(
+            "Number of columns per row group",
+            breaks = seq(0, max(data$cols) + 10, 10)
+        )
+
+    ggsave(paste0("plot_", type, ".png"), plot)
+    ggsave(paste0("plot_", type, ".pdf"), plot)
+
+}
+
+plot("integer")
+plot("double")
